@@ -170,6 +170,34 @@ function tui_draw_controller {
     esac
 }
 
+function pr_usage {
+    echo "Usage: $(basename "$0") [optional_subcommand]"
+    echo ""
+    echo "  BLE Target: $target_mac ($target_name)"
+    echo ""
+    echo "  ENV Vars:"
+    echo "    - SONY_CAMERA_MAC: Mac address of camera to use."
+    echo "                       (If not set, uses most recently connected Sony"
+    echo "                        Camera MAC from \`bluetoothctl devices\`)"
+    echo ""
+    echo "  General Subcommands:"
+    echo "    - \"tui\": Same interactive tui behavior as no subcommand"
+    echo "    - \"disconnect\": Disconnects from the camera"
+    echo ""
+    echo "NOTE: The following subcommands leave an open bluetooth connection."
+    echo "      This should be closed using \`$(basename "$0") disconnect\`."
+    echo ""
+    echo "  Press Event Subcommands:"
+    for cmd in "${tui_buttons[@],,}"; do
+        echo "    - \"${cmd/ /-}\""
+    done
+    echo ""
+    echo "  Raw Event Subcommands:"
+    for cmd in "${sony_ble_cmd_names[@],,}"; do
+        echo "    - \"${cmd/ /-}\""
+    done
+}
+
 if [[ -z "$SONY_CAMERA_MAC" ]] && [[ -z "$target_mac" ]]; then
     # No env variable? Let's hit the first paired (sony) device!
     target_mac="$(bluetoothctl devices | grep 'DC:FE:23' | head -1 | cut -d ' ' -f 2)"
@@ -183,8 +211,30 @@ if [[ -z $target_mac ]]; then
     exit 1
 fi
 
-sony_connect &
-while true; do
-    tui_draw_controller
-done
-sony_disconnect
+if [[ -n $1 ]] && [[ "${1}" != "tui" ]]; then
+    if [[ "${1}" == "help" ]] || [[ "${1}" == "-h" ]]; then
+        pr_usage
+        exit 1
+    fi
+    sony_connect # must block.
+    i=0
+    for cmd in "${tui_buttons[@],,}"; do
+        if [[ "${1,,}" == "${cmd/ /-}" ]] ; then
+            sony_send_cmd_seq "${tui_buttons_cmd_seqs[$i]}"
+        fi
+        ((i++))
+    done
+    i=0
+    for cmd in "${sony_ble_cmd_names[@],,}"; do
+        if [[ "${1,,}" == "${cmd/ /-}" ]] ; then
+            sony_send_cmd "${sony_ble_cmd_values[$i]}"
+        fi
+        ((i++))
+    done
+else
+    sony_connect &
+    while true; do
+        tui_draw_controller
+    done
+    sony_disconnect
+fi

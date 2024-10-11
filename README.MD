@@ -11,5 +11,7 @@ It uses the reverse engineering work done by https://github.com/coral/freemote/ 
 
 ## The CLI
 
-TODO: I'll make one eventually or smth.
+This tool can also be used in a non-interactive context via the CLI.
+
+`./sony-ble-remote.sh help`
 
